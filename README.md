@@ -18,7 +18,8 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 - **Battery history** — 7-day sparkline graph showing drain over time
 - **Low battery notifications** — Windows toast alert when a device drops below threshold
 - **Configurable polling** — 30s / 1min / 5min refresh intervals
-- **Auto-start with Windows** — optional, toggleable from settings
+- **Auto-start with Windows** — via installer
+- **Auto-update** — checks GitHub for new versions on startup
 - **Persisted settings** — all preferences saved between sessions
 - **Dark/Light theme** — follows your Windows system theme
 
@@ -29,7 +30,6 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 Grab the latest release from the [Releases page](../../releases):
 
 - **`BluetoothBatteryIndicator_Setup.exe`** — Installer (recommended). Adds Start Menu shortcut and auto-start.
-- **`BluetoothBatteryIndicator.exe`** — Standalone portable executable. Just run it.
 
 ### Requirements
 
@@ -51,7 +51,7 @@ Grab the latest release from the [Releases page](../../releases):
 - Override device type icons
 - Choose which device battery to display on the tray icon
 - Configure polling interval
-- Enable/disable auto-start
+- Enable/disable auto-update
 - View battery drain history per device
 
 ## Building from Source
