@@ -1,0 +1,30 @@
+# Build output
+bin/
+obj/
+publish/
+artifacts/
+
+# IDE
+.vs/
+*.user
+*.suo
+*.csproj.user
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Inno Setup output
+installer/Output/
+
+
+.local/
+.env
+
