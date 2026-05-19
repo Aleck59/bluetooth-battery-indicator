@@ -68,7 +68,11 @@ public class UpdateService
             _window.SetProgress(0);
 
             var tempPath = Path.Combine(Path.GetTempPath(), InstallerName);
-            await DownloadWithProgress(http, downloadUrl, tempPath);
+
+            using var downloadHttp = new HttpClient();
+            downloadHttp.Timeout = TimeSpan.FromSeconds(60);
+            downloadHttp.DefaultRequestHeaders.UserAgent.ParseAdd("BluetoothBatteryIndicator");
+            await DownloadWithProgress(downloadHttp, downloadUrl, tempPath);
 
             // Install
             Log.Info($"Download complete, launching installer: {tempPath}");
@@ -88,13 +92,13 @@ public class UpdateService
         catch (Exception ex)
         {
             Log.Info($"Update check failed: {ex.Message}");
+            _window.Hide();
             return false;
         }
     }
 
     private async Task DownloadWithProgress(HttpClient http, string url, string destPath)
     {
-        http.Timeout = TimeSpan.FromSeconds(60);
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
 
