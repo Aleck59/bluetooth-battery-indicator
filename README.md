@@ -1,9 +1,9 @@
 # 🔋 Bluetooth Battery Indicator
 
-A lightweight Windows system tray application that monitors Bluetooth device battery levels in real-time. Built with .NET 8, WPF, and Fluent Design.
+A lightweight Windows system tray application that monitors Bluetooth device battery levels in real-time. Built with .NET Framework 4.8 (built into Windows 10/11 — nothing extra to install), WPF, and Fluent Design.
 
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)
-![.NET 8](https://img.shields.io/badge/.NET-8.0-purple?logo=dotnet)
+![.NET Framework 4.8](https://img.shields.io/badge/.NET%20Framework-4.8-purple?logo=dotnet)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
@@ -30,13 +30,12 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 
 Grab the latest release from the [Releases page](../../releases):
 
-- **`BluetoothBatteryIndicator_Setup.exe`** — Installer (recommended, ~5 MB). Adds Start Menu shortcut and auto-start. If the .NET 8 Desktop Runtime is missing, the installer downloads and installs it (one-time, needs admin confirmation).
+- **`BluetoothBatteryIndicator_Setup.exe`** — Installer (recommended, ~2 MB). Adds Start Menu shortcut and auto-start. No runtime download: the app uses .NET Framework 4.8, which ships with Windows.
 
 ### Requirements
 
 - Windows 10 (build 19041+) or Windows 11
 - Bluetooth adapter
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (x64) — installed automatically by the installer
 
 ## Usage
 
@@ -62,7 +61,7 @@ When auto-hide is on and no device is connected, the tray icon is hidden — lau
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (Windows)
+- [.NET SDK 8+](https://dotnet.microsoft.com/download) (builds the .NET Framework 4.8 target; works on Windows, and on Linux/macOS for compile checks)
 
 ### Build
 
@@ -78,13 +77,11 @@ dotnet run --project BluetoothBatteryIndicator
 
 ### Publish
 
-Release builds are framework-dependent (~30 MB exe, ~5 MB installer) and use the shared .NET Desktop Runtime:
-
 ```powershell
-dotnet publish BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
+dotnet publish BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj -c Release -o publish
 ```
 
-A self-contained build (no runtime required) is ~190 MB because it bundles the whole WPF runtime.
+The output (~8 MB, mostly the WPF-UI library) runs on any Windows 10 2004+ / Windows 11 without installing a runtime. Ship the whole folder: `BluetoothBatteryIndicator.exe.config` holds required assembly binding redirects.
 
 ### Build Installer
 
@@ -103,7 +100,7 @@ iscc installer/BluetoothBatteryIndicator.iss
 
 ## Tech Stack
 
-- **C# / .NET 8 / WPF**
+- **C# / .NET Framework 4.8 / WPF**
 - **[WPF UI](https://github.com/lepoco/wpfui)** — Fluent Design controls and theming
 - **Windows.Devices.Bluetooth** — WinRT Bluetooth APIs
 - **Inno Setup** — Installer packaging

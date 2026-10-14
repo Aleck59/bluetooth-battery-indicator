@@ -55,7 +55,7 @@ public partial class SparklineControl : UserControl
 
         // Plot points
         var minTime = readings[0].Timestamp.Ticks;
-        var maxTime = readings[^1].Timestamp.Ticks;
+        var maxTime = readings[readings.Count - 1].Timestamp.Ticks;
         var timeRange = maxTime - minTime;
 
         if (timeRange <= 0)

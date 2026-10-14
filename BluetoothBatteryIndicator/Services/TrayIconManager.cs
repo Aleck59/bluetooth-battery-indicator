@@ -143,7 +143,7 @@ public class TrayIconManager : IDisposable
         }
 
         if (tooltip.Length > 127)
-            tooltip = tooltip[..124] + "...";
+            tooltip = tooltip.Substring(0, 124) + "...";
 
         _notifyIcon.Text = tooltip;
     }
@@ -192,7 +192,7 @@ public class TrayIconManager : IDisposable
     private static char GlyphFor(int batteryLevel)
     {
         if (batteryLevel < 0) return BatteryUnknownGlyph;
-        var step = (int)Math.Round(Math.Clamp(batteryLevel, 0, 100) / 10.0);
+        var step = (int)Math.Round(Math.Min(Math.Max(batteryLevel, 0), 100) / 10.0);
         return step == 10 ? BatteryFullGlyph : (char)(BatteryEmptyGlyph + step);
     }
 

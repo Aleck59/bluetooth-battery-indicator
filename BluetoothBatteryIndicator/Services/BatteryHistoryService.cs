@@ -39,7 +39,7 @@ public class BatteryHistoryService
         if (_lastRecordTime.TryGetValue(deviceId, out var lastTime))
         {
             var history = GetHistory(deviceId);
-            var lastLevel = history.Count > 0 ? history[^1].Level : -1;
+            var lastLevel = history.Count > 0 ? history[history.Count - 1].Level : -1;
 
             // Only record if level changed or enough time passed
             if (lastLevel == level && now - lastTime < MinInterval)
@@ -96,9 +96,9 @@ public class BatteryHistoryService
 
     private static string GetFilePath(string deviceId)
     {
-        var hash = Convert.ToHexString(
-            System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes(deviceId)))[..16];
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var digest = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(deviceId));
+        var hash = BitConverter.ToString(digest).Replace("-", "").Substring(0, 16);
         return Path.Combine(HistoryDir, $"{hash}.json");
     }
 }
