@@ -110,9 +110,9 @@ public class UpdateService
         long downloaded = 0;
         int bytesRead;
 
-        while ((bytesRead = await stream.ReadAsync(buffer)) > 0)
+        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead));
+            await fileStream.WriteAsync(buffer, 0, bytesRead);
             downloaded += bytesRead;
 
             if (totalBytes > 0)
@@ -141,7 +141,7 @@ public class UpdateService
     {
         // Handle "0.1.0" or "0.1.0-alpha.1"
         var dashIndex = version.IndexOf('-');
-        if (dashIndex > 0) version = version[..dashIndex];
+        if (dashIndex > 0) version = version.Substring(0, dashIndex);
         return Version.TryParse(version, out var v) ? v : null;
     }
 
