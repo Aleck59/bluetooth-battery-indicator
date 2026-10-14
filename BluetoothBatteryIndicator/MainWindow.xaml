@@ -205,6 +205,17 @@
                     <TextBlock Grid.Column="0" Text="Polling interval:" VerticalAlignment="Center"/>
                     <ComboBox Grid.Column="1" x:Name="PollingCombo" SelectionChanged="PollingCombo_SelectionChanged"/>
                 </Grid>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Auto-hide icon:" VerticalAlignment="Center"
+                               ToolTip="Hide the tray icon while no device is connected. Launch the app again to open settings."/>
+                    <ui:ToggleSwitch Grid.Column="1" x:Name="AutoHideToggle"
+                                     Content="Hide tray icon when no device is connected"
+                                     Checked="AutoHideToggle_Toggled" Unchecked="AutoHideToggle_Toggled"/>
+                </Grid>
                 <Grid Margin="0,0,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="120"/>
