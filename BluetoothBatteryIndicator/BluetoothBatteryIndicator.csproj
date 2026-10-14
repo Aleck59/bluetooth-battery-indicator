@@ -12,6 +12,12 @@
     <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <MinVerTagPrefix>v</MinVerTagPrefix>
     <MinVerAutoIncrement>minor</MinVerAutoIncrement>
+
+    <!-- Size: lets the project build on non-Windows CI/dev boxes, drops satellite
+         resource folders and PDBs from the published output. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
   </PropertyGroup>
 
   <Target Name="SetAssemblyVersion" AfterTargets="MinVer">
@@ -24,8 +30,6 @@
 
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.3.0" />
-    <PackageReference Include="WPF-UI.Tray" Version="4.3.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="MinVer" Version="6.0.0" PrivateAssets="all" />
   </ItemGroup>
 

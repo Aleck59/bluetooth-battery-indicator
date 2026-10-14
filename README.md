@@ -8,7 +8,8 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 
 ## Features
 
-- **System tray icon** with dynamic battery level display (color-coded)
+- **System tray icon** styled like the native Windows battery indicator (Segoe Fluent Icons on Windows 11, Segoe MDL2 Assets on Windows 10), adapts to light/dark taskbar, turns red below the low-battery threshold
+- **Auto-hide** — the tray icon disappears while no device is connected and reappears when one connects (can be turned off)
 - **Tooltip on hover** showing all connected devices and their battery percentage
 - **Flyout panel** — click the tray icon for a quick-glance popup with device list
 - **Settings window** with Fluent Design (Mica backdrop, Windows 11 style)
@@ -29,12 +30,13 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 
 Grab the latest release from the [Releases page](../../releases):
 
-- **`BluetoothBatteryIndicator_Setup.exe`** — Installer (recommended). Adds Start Menu shortcut and auto-start.
+- **`BluetoothBatteryIndicator_Setup.exe`** — Installer (recommended, ~5 MB). Adds Start Menu shortcut and auto-start. If the .NET 8 Desktop Runtime is missing, the installer downloads and installs it (one-time, needs admin confirmation).
 
 ### Requirements
 
 - Windows 10 (build 19041+) or Windows 11
 - Bluetooth adapter
+- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) (x64) — installed automatically by the installer
 
 ## Usage
 
@@ -43,6 +45,8 @@ Grab the latest release from the [Releases page](../../releases):
 3. **Left-click** the tray icon to open the flyout panel
 4. **Right-click** → **Settings** to open the full settings window
 5. **Right-click** → **Exit** to close the app
+
+When auto-hide is on and no device is connected, the tray icon is hidden — launch the app again (Start Menu) to open the settings window.
 
 ### Settings Window
 
@@ -72,11 +76,15 @@ dotnet build BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj
 dotnet run --project BluetoothBatteryIndicator
 ```
 
-### Publish (self-contained)
+### Publish
+
+Release builds are framework-dependent (~30 MB exe, ~5 MB installer) and use the shared .NET Desktop Runtime:
 
 ```powershell
-dotnet publish BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+dotnet publish BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o publish
 ```
+
+A self-contained build (no runtime required) is ~190 MB because it bundles the whole WPF runtime.
 
 ### Build Installer
 

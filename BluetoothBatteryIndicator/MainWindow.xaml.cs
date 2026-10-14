@@ -49,6 +49,7 @@ public partial class MainWindow : FluentWindow
         PopulateTrayDeviceCombo();
         PopulatePollingCombo();
         AutoUpdateToggle.IsChecked = _settingsService.Settings.AutoUpdate;
+        AutoHideToggle.IsChecked = _settingsService.Settings.HideTrayIconWhenDisconnected;
     }
 
     private void PopulatePollingCombo()
@@ -167,6 +168,16 @@ public partial class MainWindow : FluentWindow
         {
             _settingsService.Settings.AutoUpdate = toggle.IsChecked == true;
             _settingsService.Save();
+        }
+    }
+
+    private void AutoHideToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is Wpf.Ui.Controls.ToggleSwitch toggle)
+        {
+            _settingsService.Settings.HideTrayIconWhenDisconnected = toggle.IsChecked == true;
+            _settingsService.Save();
+            _settingsService.NotifyChanged();
         }
     }
 

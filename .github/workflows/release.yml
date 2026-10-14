@@ -25,14 +25,15 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj
 
-      - name: Publish self-contained exe
+      # Framework-dependent: relies on the shared .NET Desktop Runtime (the installer
+      # installs it when missing) instead of bundling ~150 MB of runtime into the exe.
+      - name: Publish framework-dependent exe
         run: |
           dotnet publish BluetoothBatteryIndicator/BluetoothBatteryIndicator.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained `
+            --self-contained false `
             -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
             -o publish
 
       - name: Upload publish artifacts
