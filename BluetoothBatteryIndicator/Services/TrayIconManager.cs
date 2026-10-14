@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
@@ -11,12 +10,6 @@ public class TrayIconManager : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
-    // Battery glyphs shared by Segoe MDL2 Assets (Windows 10) and Segoe Fluent Icons (Windows 11).
-    // Battery0..Battery9 are U+E850..U+E859, Battery10 is U+E83F.
-    private const char BatteryEmptyGlyph = '';
-    private const char BatteryFullGlyph = '';
-    private const char BatteryUnknownGlyph = '';
-
     private static readonly Color LowBatteryColor = Color.FromArgb(232, 17, 35);
 
     private readonly System.Windows.Forms.NotifyIcon _notifyIcon;
@@ -25,7 +18,6 @@ public class TrayIconManager : IDisposable
     private readonly Action _showFlyout;
     private readonly Action _showSettings;
     private readonly System.Windows.Threading.Dispatcher _dispatcher;
-    private readonly FontFamily? _iconFont;
     private string? _iconKey;
 
     public System.Windows.Forms.NotifyIcon NotifyIcon => _notifyIcon;
@@ -37,7 +29,6 @@ public class TrayIconManager : IDisposable
         _showFlyout = showFlyout;
         _showSettings = showSettings;
         _dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
-        _iconFont = ResolveIconFont();
 
         _notifyIcon = new System.Windows.Forms.NotifyIcon
         {
@@ -98,7 +89,7 @@ public class TrayIconManager : IDisposable
         var low = level >= 0 && level <= _settingsService.Settings.LowBatteryThreshold;
 
         // Regenerate only when something visible changed
-        var key = $"{GlyphFor(level)}|{size}|{lightTaskbar}|{low}";
+        var key = $"{FillStep(level)}|{size}|{lightTaskbar}|{low}";
         if (key == _iconKey) return;
         _iconKey = key;
 
@@ -167,36 +158,13 @@ public class TrayIconManager : IDisposable
         catch { return false; }
     }
 
-    private static FontFamily? ResolveIconFont()
-    {
-        // Windows 11 draws the system battery with Segoe Fluent Icons, Windows 10 with Segoe MDL2 Assets
-        var candidates = Environment.OSVersion.Version.Build >= 22000
-            ? new[] { "Segoe Fluent Icons", "Segoe MDL2 Assets" }
-            : new[] { "Segoe MDL2 Assets", "Segoe Fluent Icons" };
+    private static bool IsWindows11 => Environment.OSVersion.Version.Build >= 22000;
 
-        foreach (var name in candidates)
-        {
-            try
-            {
-                var family = new FontFamily(name);
-                Log.Info($"Tray icon font: {name}");
-                return family;
-            }
-            catch (ArgumentException) { }
-        }
+    /// <summary>Charge quantized to whole percent; -1 means unknown (empty outline).</summary>
+    private static int FillStep(int batteryLevel) =>
+        batteryLevel < 0 ? -1 : Math.Min(Math.Max(batteryLevel, 0), 100);
 
-        Log.Info("No Segoe icon font found, using drawn tray icon");
-        return null;
-    }
-
-    private static char GlyphFor(int batteryLevel)
-    {
-        if (batteryLevel < 0) return BatteryUnknownGlyph;
-        var step = (int)Math.Round(Math.Min(Math.Max(batteryLevel, 0), 100) / 10.0);
-        return step == 10 ? BatteryFullGlyph : (char)(BatteryEmptyGlyph + step);
-    }
-
-    private Icon CreateBatteryIcon(int batteryLevel, int size, bool lightTaskbar, bool low)
+    private static Icon CreateBatteryIcon(int batteryLevel, int size, bool lightTaskbar, bool low)
     {
         var foreground = lightTaskbar ? Color.Black : Color.White;
 
@@ -204,12 +172,7 @@ public class TrayIconManager : IDisposable
         using (var g = Graphics.FromImage(bmp))
         {
             g.Clear(Color.Transparent);
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-
-            if (_iconFont == null || !DrawGlyphBattery(g, _iconFont, batteryLevel, size, foreground, low))
-                DrawFallbackBattery(g, batteryLevel, size, foreground, low);
+            DrawBattery(g, FillStep(batteryLevel), size, foreground, low ? LowBatteryColor : foreground, IsWindows11);
         }
 
         // GetHicon allocates an unmanaged handle that Icon.FromHandle does not own: copy it, then free it
@@ -225,61 +188,70 @@ public class TrayIconManager : IDisposable
         }
     }
 
-    private static bool DrawGlyphBattery(Graphics g, FontFamily font, int batteryLevel, int size, Color foreground, bool low)
+    /// <summary>
+    /// Draws a battery with the proportions of the Windows taskbar battery icon
+    /// (at 125% scaling: 20 px icon, 18x13 body, 1x3 terminal), snapped to whole pixels.
+    /// Windows 11 gets rounded corners.
+    /// </summary>
+    private static void DrawBattery(Graphics g, int level, int size, Color outline, Color fill, bool rounded)
     {
-        using var levelPath = GlyphPath(font, GlyphFor(batteryLevel), size);
-        var bounds = levelPath.GetBounds();
-        if (bounds.Width <= 0 || bounds.Height <= 0) return false;
+        var k = size / 16f;
+        var stroke = Math.Max(1, (int)k);
+        var bodyW = (int)Math.Round(14.4 * k);
+        var bodyH = (int)Math.Round(10.4 * k);
+        var nubW = stroke;
+        var nubH = (int)Math.Round(bodyH * 0.25);
+        if ((bodyH - nubH) % 2 != 0) nubH++; // keep the terminal vertically centered on whole pixels
 
-        // Center on whole pixels so the glyph keeps the pixel grid it was designed on
-        var dx = (float)Math.Floor((size - bounds.Width) / 2) - bounds.X;
-        var dy = (float)Math.Floor((size - bounds.Height) / 2) - bounds.Y;
-        using var shift = new Matrix();
-        shift.Translate(dx, dy);
-        levelPath.Transform(shift);
+        var x = (size - bodyW - nubW) / 2;
+        var y = (size - bodyH) / 2;
 
-        if (!low)
+        var inset = 2 * stroke; // outline + equal gap before the charge bar
+        var innerW = bodyW - 2 * inset;
+        var innerH = bodyH - 2 * inset;
+        var fillW = level <= 0 ? 0 : Math.Max(1, (int)Math.Round(innerW * level / 100.0));
+
+        using var outlineBrush = new SolidBrush(outline);
+        using var fillBrush = new SolidBrush(fill);
+
+        if (!rounded)
         {
-            using var brush = new SolidBrush(foreground);
-            g.FillPath(brush, levelPath);
-            return true;
+            g.SmoothingMode = SmoothingMode.None;
+            g.FillRectangle(outlineBrush, x, y, bodyW, stroke);
+            g.FillRectangle(outlineBrush, x, y + bodyH - stroke, bodyW, stroke);
+            g.FillRectangle(outlineBrush, x, y, stroke, bodyH);
+            g.FillRectangle(outlineBrush, x + bodyW - stroke, y, stroke, bodyH);
+            g.FillRectangle(outlineBrush, x + bodyW, y + (bodyH - nubH) / 2, nubW, nubH);
+            if (fillW > 0)
+                g.FillRectangle(fillBrush, x + inset, y + inset, fillW, innerH);
+            return;
         }
 
-        // Low battery: red charge level under the regular outline, like the system indicator
-        using var outlinePath = GlyphPath(font, BatteryEmptyGlyph, size);
-        outlinePath.Transform(shift);
-        using (var lowBrush = new SolidBrush(LowBatteryColor))
-            g.FillPath(lowBrush, levelPath);
-        using (var brush = new SolidBrush(foreground))
-            g.FillPath(brush, outlinePath);
-        return true;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.PixelOffsetMode = PixelOffsetMode.Half;
+        var radius = Math.Max(1.5f, 2 * k);
+        using (var pen = new Pen(outline, stroke))
+        using (var body = RoundedRect(x + stroke / 2f, y + stroke / 2f, bodyW - stroke, bodyH - stroke, radius))
+            g.DrawPath(pen, body);
+        using (var nub = RoundedRect(x + bodyW - stroke / 2f, y + (bodyH - nubH) / 2f, nubW + stroke / 2f, nubH, nubW))
+            g.FillPath(outlineBrush, nub);
+        if (fillW > 0)
+        {
+            using var bar = RoundedRect(x + inset, y + inset, fillW, innerH, Math.Max(0.5f, radius - inset / 2f));
+            g.FillPath(fillBrush, bar);
+        }
     }
 
-    private static GraphicsPath GlyphPath(FontFamily font, char glyph, int size)
+    private static GraphicsPath RoundedRect(float x, float y, float w, float h, float r)
     {
+        var d = Math.Min(2 * r, Math.Min(w, h));
         var path = new GraphicsPath();
-        path.AddString(glyph.ToString(), font, (int)FontStyle.Regular, size, PointF.Empty, StringFormat.GenericTypographic);
+        path.AddArc(x, y, d, d, 180, 90);
+        path.AddArc(x + w - d, y, d, d, 270, 90);
+        path.AddArc(x + w - d, y + h - d, d, d, 0, 90);
+        path.AddArc(x, y + h - d, d, d, 90, 90);
+        path.CloseFigure();
         return path;
-    }
-
-    /// <summary>Hand-drawn Windows 10 style battery for systems without the Segoe icon fonts.</summary>
-    private static void DrawFallbackBattery(Graphics g, int batteryLevel, int size, Color foreground, bool low)
-    {
-        g.SmoothingMode = SmoothingMode.None;
-        float unit = size / 16f;
-        using var pen = new Pen(foreground, Math.Max(1, (int)unit));
-        using var brush = new SolidBrush(foreground);
-
-        var body = new RectangleF(1 * unit, 4 * unit, 12 * unit, 8 * unit);
-        g.DrawRectangle(pen, body.X, body.Y, body.Width, body.Height);
-        g.FillRectangle(brush, 13 * unit, 6 * unit, 2 * unit, 4 * unit);
-
-        if (batteryLevel > 0)
-        {
-            using var fill = new SolidBrush(low ? LowBatteryColor : foreground);
-            var inner = 9 * unit;
-            g.FillRectangle(fill, 3 * unit, 6 * unit, inner * Math.Min(batteryLevel, 100) / 100f, 4 * unit + 1);
-        }
     }
 
     public void Dispose()
@@ -288,6 +260,5 @@ public class TrayIconManager : IDisposable
         _notifyIcon.Visible = false;
         _notifyIcon.Icon?.Dispose();
         _notifyIcon.Dispose();
-        _iconFont?.Dispose();
     }
 }
