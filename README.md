@@ -8,7 +8,7 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 
 ## Features
 
-- **System tray icon** styled like the native Windows battery indicator (Segoe Fluent Icons on Windows 11, Segoe MDL2 Assets on Windows 10), adapts to light/dark taskbar, turns red below the low-battery threshold
+- **System tray icon** drawn with the same proportions as the native Windows battery indicator (pixel-snapped at every display scale, rounded corners on Windows 11), adapts to light/dark taskbar, turns red below the low-battery threshold
 - **Auto-hide** — the tray icon disappears while no device is connected and reappears when one connects (can be turned off)
 - **Tooltip on hover** showing all connected devices and their battery percentage
 - **Flyout panel** — click the tray icon for a quick-glance popup with device list
