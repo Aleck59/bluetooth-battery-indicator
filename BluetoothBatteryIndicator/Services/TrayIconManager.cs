@@ -17,18 +17,21 @@ public class TrayIconManager : IDisposable
     private readonly SettingsService _settingsService;
     private readonly Action _showFlyout;
     private readonly Action _showSettings;
-    private readonly System.Windows.Threading.Dispatcher _dispatcher;
+    private readonly Action _exit;
+    private readonly SynchronizationContext _uiContext;
     private string? _iconKey;
 
     public System.Windows.Forms.NotifyIcon NotifyIcon => _notifyIcon;
 
-    public TrayIconManager(BluetoothService bluetoothService, SettingsService settingsService, Action showFlyout, Action showSettings)
+    public TrayIconManager(BluetoothService bluetoothService, SettingsService settingsService, Action showFlyout, Action showSettings, Action exit)
     {
         _bluetoothService = bluetoothService;
         _settingsService = settingsService;
         _showFlyout = showFlyout;
         _showSettings = showSettings;
-        _dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+        _exit = exit;
+        _uiContext = SynchronizationContext.Current
+            ?? throw new InvalidOperationException("TrayIconManager must be created on the UI thread");
 
         _notifyIcon = new System.Windows.Forms.NotifyIcon
         {
@@ -60,7 +63,7 @@ public class TrayIconManager : IDisposable
     {
         // Taskbar light/dark switch arrives as General
         if (e.Category is UserPreferenceCategory.General or UserPreferenceCategory.VisualStyle)
-            _dispatcher.BeginInvoke(UpdateIcon);
+            _uiContext.Post(_ => UpdateIcon(), null);
     }
 
     /// <summary>
@@ -144,7 +147,7 @@ public class TrayIconManager : IDisposable
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Settings", null, (_, _) => _showSettings());
         menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => System.Windows.Application.Current.Shutdown());
+        menu.Items.Add("Exit", null, (_, _) => _exit());
         return menu;
     }
 

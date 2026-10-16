@@ -2,7 +2,7 @@ using System.Windows;
 
 namespace BluetoothBatteryIndicator;
 
-public partial class UpdateWindow : Window
+public partial class UpdateWindow : Window, Services.IUpdateProgress
 {
     public UpdateWindow()
     {

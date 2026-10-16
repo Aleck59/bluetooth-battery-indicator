@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Windows.Threading;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Enumeration;
 using BluetoothBatteryIndicator.Models;
@@ -21,15 +20,16 @@ public class BluetoothService : IDisposable
 
     private DeviceWatcher? _classicWatcher;
     private DeviceWatcher? _bleWatcher;
-    private DispatcherTimer? _pollTimer;
-    private readonly Dispatcher _dispatcher;
+    private System.Windows.Forms.Timer? _pollTimer;
+    private readonly SynchronizationContext _uiContext;
 
     public ObservableCollection<BluetoothDeviceInfo> Devices { get; } = new();
     public event Action? DevicesChanged;
 
     public BluetoothService()
     {
-        _dispatcher = Dispatcher.CurrentDispatcher;
+        _uiContext = SynchronizationContext.Current
+            ?? throw new InvalidOperationException("BluetoothService must be created on the UI thread");
     }
 
     public void StartAsync()
@@ -45,12 +45,12 @@ public class BluetoothService : IDisposable
             "BLE",
             ref _bleWatcher);
 
-        _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _pollTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
         _pollTimer.Tick += (_, _) => RefreshBatteryLevels();
         _pollTimer.Start();
 
         // Initial poll after a short delay to let watchers populate
-        Task.Delay(2000).ContinueWith(_ => _dispatcher.Invoke(RefreshBatteryLevels));
+        Task.Delay(2000).ContinueWith(_ => _uiContext.Post(_ => RefreshBatteryLevels(), null));
     }
 
     private void StartWatcher(string selector, string deviceType, ref DeviceWatcher? watcher)
@@ -60,9 +60,9 @@ public class BluetoothService : IDisposable
             RequestedProperties,
             DeviceInformationKind.AssociationEndpoint);
 
-        watcher.Added += (_, info) => _dispatcher.Invoke(() => OnDeviceAdded(info, deviceType));
-        watcher.Updated += (_, update) => _dispatcher.Invoke(() => OnDeviceUpdated(update));
-        watcher.Removed += (_, update) => _dispatcher.Invoke(() => OnDeviceRemoved(update));
+        watcher.Added += (_, info) => _uiContext.Post(_ => OnDeviceAdded(info, deviceType), null);
+        watcher.Updated += (_, update) => _uiContext.Post(_ => OnDeviceUpdated(update), null);
+        watcher.Removed += (_, update) => _uiContext.Post(_ => OnDeviceRemoved(update), null);
         watcher.Start();
     }
 
@@ -289,12 +289,12 @@ public class BluetoothService : IDisposable
     public void SetPollingInterval(int seconds)
     {
         if (_pollTimer != null)
-            _pollTimer.Interval = TimeSpan.FromSeconds(seconds);
+            _pollTimer.Interval = seconds * 1000;
     }
 
     public void Dispose()
     {
-        _pollTimer?.Stop();
+        _pollTimer?.Dispose();
         _classicWatcher?.Stop();
         _bleWatcher?.Stop();
     }
