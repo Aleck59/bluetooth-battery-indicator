@@ -2,26 +2,37 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
-using System.Windows;
 
 namespace BluetoothBatteryIndicator.Services;
+
+public sealed class UpdateInfo
+{
+    public UpdateInfo(string tag, string downloadUrl)
+    {
+        Tag = tag;
+        DownloadUrl = downloadUrl;
+    }
+
+    public string Tag { get; }
+    public string DownloadUrl { get; }
+}
+
+/// <summary>Progress UI for an update download; implemented by the WPF update window.</summary>
+public interface IUpdateProgress
+{
+    void Show();
+    void Hide();
+    void SetStatus(string status);
+    void SetProgress(double percent);
+}
 
 public class UpdateService
 {
     private const string RepoApiUrl = "https://api.github.com/repos/zonnedev/bluetooth-battery-indicator/releases/latest";
     private const string InstallerName = "BluetoothBatteryIndicator_Setup.exe";
 
-    private readonly UpdateWindow _window;
-
-    public UpdateService(UpdateWindow window)
-    {
-        _window = window;
-    }
-
-    /// <summary>
-    /// Returns true if an update was triggered (app should exit).
-    /// </summary>
-    public async Task<bool> CheckAndUpdate()
+    /// <summary>Returns the newer release, or null when up to date or the check fails.</summary>
+    public async Task<UpdateInfo?> CheckAsync()
     {
         try
         {
@@ -29,11 +40,11 @@ public class UpdateService
             if (IsPackagedApp())
             {
                 Log.Info("Running as MSIX package, skipping self-update (Store handles it)");
-                return false;
+                return null;
             }
 
             using var http = new HttpClient();
-            http.Timeout = TimeSpan.FromSeconds(3);
+            http.Timeout = TimeSpan.FromSeconds(10);
             http.DefaultRequestHeaders.UserAgent.ParseAdd("BluetoothBatteryIndicator");
 
             Log.Info($"Checking for updates at {RepoApiUrl}");
@@ -42,42 +53,55 @@ public class UpdateService
 
             var tagName = release.GetProperty("tag_name").GetString() ?? "";
             var remoteVersion = ParseVersion(tagName.TrimStart('v'));
-            var currentVersion = typeof(App).Assembly.GetName().Version;
+            var currentVersion = typeof(UpdateService).Assembly.GetName().Version;
 
             Log.Info($"Current version: {currentVersion}, Remote version: {remoteVersion} ({tagName})");
 
             if (currentVersion == null || remoteVersion == null || remoteVersion <= currentVersion)
             {
                 Log.Info("Already up to date");
-                return false;
+                return null;
             }
 
-            // Find installer asset
             var downloadUrl = FindAssetUrl(release);
             if (downloadUrl == null)
             {
                 Log.Info("No installer asset found in release");
-                return false;
+                return null;
             }
 
-            Log.Info($"Update available! Downloading from {downloadUrl}");
+            return new UpdateInfo(tagName, downloadUrl);
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Update check failed: {ex.Message}");
+            return null;
+        }
+    }
 
-            // Show update window and download
-            _window.Show();
-            _window.SetStatus($"Updating to {tagName}...");
-            _window.SetProgress(0);
+    /// <summary>
+    /// Downloads the installer and starts it silently. Returns true if the installer was launched
+    /// (the app should exit so it can be replaced).
+    /// </summary>
+    public async Task<bool> DownloadAndRunAsync(UpdateInfo update, IUpdateProgress progress)
+    {
+        try
+        {
+            Log.Info($"Update available! Downloading from {update.DownloadUrl}");
+            progress.Show();
+            progress.SetStatus($"Updating to {update.Tag}...");
+            progress.SetProgress(0);
 
             var tempPath = Path.Combine(Path.GetTempPath(), InstallerName);
 
             using var downloadHttp = new HttpClient();
             downloadHttp.Timeout = TimeSpan.FromSeconds(60);
             downloadHttp.DefaultRequestHeaders.UserAgent.ParseAdd("BluetoothBatteryIndicator");
-            await DownloadWithProgress(downloadHttp, downloadUrl, tempPath);
+            await DownloadWithProgress(downloadHttp, update.DownloadUrl, tempPath, progress);
 
-            // Install
             Log.Info($"Download complete, launching installer: {tempPath}");
-            _window.SetStatus("Installing...");
-            _window.SetProgress(100);
+            progress.SetStatus("Installing...");
+            progress.SetProgress(100);
 
             Process.Start(new ProcessStartInfo
             {
@@ -85,19 +109,17 @@ public class UpdateService
                 Arguments = "/VERYSILENT /SUPPRESSMSGBOXES",
                 UseShellExecute = true
             });
-
-            Application.Current.Shutdown();
             return true;
         }
         catch (Exception ex)
         {
-            Log.Info($"Update check failed: {ex.Message}");
-            _window.Hide();
+            Log.Info($"Update failed: {ex.Message}");
+            progress.Hide();
             return false;
         }
     }
 
-    private async Task DownloadWithProgress(HttpClient http, string url, string destPath)
+    private static async Task DownloadWithProgress(HttpClient http, string url, string destPath, IUpdateProgress progress)
     {
         using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
@@ -118,8 +140,8 @@ public class UpdateService
             if (totalBytes > 0)
             {
                 var percent = (double)downloaded / totalBytes * 100;
-                _window.SetProgress(percent);
-                _window.SetStatus($"Downloading update... ({downloaded / 1024:0} KB / {totalBytes / 1024:0} KB)");
+                progress.SetProgress(percent);
+                progress.SetStatus($"Downloading update... ({downloaded / 1024:0} KB / {totalBytes / 1024:0} KB)");
             }
         }
     }

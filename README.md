@@ -22,6 +22,7 @@ A lightweight Windows system tray application that monitors Bluetooth device bat
 - **Auto-start with Windows** — via installer
 - **Auto-update** — checks GitHub for new versions on startup
 - **Persisted settings** — all preferences saved between sessions
+- **Light on resources** — the tray part runs on a plain WinForms message loop; WPF and the Fluent UI library load only when a window is opened, and memory is released again after it is closed. The update check runs a minute after startup, off the boot path
 - **Dark/Light theme** — follows your Windows system theme
 
 ## Installation
